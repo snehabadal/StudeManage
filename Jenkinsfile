@@ -1,10 +1,14 @@
+
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
+    tools {
+        jdk 'JDK21'
+        maven 'Maven'
+    }
+
+    options {   
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
@@ -14,7 +18,7 @@ pipeline {
             }
         }
 
-        stage('Check Java and Maven') {
+        stage('Check Tools') {
             steps {
                 bat 'java -version'
                 bat 'mvn -version'
@@ -23,7 +27,7 @@ pipeline {
 
         stage('Compile') {
             steps {
-                bat 'mvn -B -DskipTests compile'
+                bat 'mvn -B clean compile'
             }
         }
 
@@ -35,29 +39,26 @@ pipeline {
 
         stage('Package Application') {
             steps {
-                bat 'mvn -B -DskipTests package'
+                bat 'mvn -B package'
             }
         }
     }
 
     post {
         always {
-            junit(
-                testResults: '**/target/surefire-reports/TEST-*.xml',
-                allowEmptyResults: true
-            )
+            junit testResults: 'target/surefire-reports/*.xml',
+                  allowEmptyResults: false
+
+            archiveArtifacts artifacts: 'target/*.jar',
+                             allowEmptyArchive: false
         }
 
         success {
-            archiveArtifacts(
-                artifacts: 'target/*.jar',
-                fingerprint: true
-            )
-            echo 'SUCCESS: Build and tests completed.'
+            echo 'BUILD SUCCESS: Application tested and packaged.'
         }
 
         failure {
-            echo 'FAILED: Check the Console Output and test reports.'
+            echo 'BUILD FAILED: Check the Console Output.'
         }
     }
 }
